@@ -284,9 +284,109 @@ function loadDB() {
 let db = loadDB();
 let current = { page: 'members', warId: null, leagueTab: 'record', statFilter: 'all', sortKey: 'stars', sortDir: -1, memberSearch: '' };
 
+/* ================= 云同步（Supabase） ================= */
+const SYNC_CFG_KEY = 'coc-war-tracker-sync-cfg';
+function loadSyncCfg() {
+  try {
+    const c = JSON.parse(localStorage.getItem(SYNC_CFG_KEY));
+    if (c && c.url && c.key) return c;
+  } catch (e) {}
+  return null;
+}
+let syncCfg = loadSyncCfg();
+let syncState = { status: 'unset', lastAt: null, error: '' };
+let syncTimer = null;
+function syncId() { return (syncCfg && syncCfg.id) || 'main'; }
+function supHeaders() {
+  const h = {
+    'apikey': syncCfg.key,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  };
+  const k = String(syncCfg.key || '');
+  // 新版 Publishable key（sb_publishable_ / pk_ 开头）只走 apikey header，不能作为 Bearer 发送；
+  // 旧版 anon key（eyJ 开头 JWT）需要 Authorization: Bearer
+  if (!/^(sb_publishable_|pk_)/.test(k)) {
+    h['Authorization'] = 'Bearer ' + k;
+  }
+  return h;
+}
+async function pushToCloud() {
+  db.updatedAt = new Date().toISOString();
+  try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch (e) {}
+  const url = syncCfg.url.replace(/\/+$/, '') + '/rest/v1/clan_sync?on_conflict=id';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: Object.assign(supHeaders(), { 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify({ id: syncId(), data: db, updated_at: db.updatedAt })
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+}
+async function fetchCloudRow() {
+  const url = syncCfg.url.replace(/\/+$/, '') + '/rest/v1/clan_sync?id=eq.' + encodeURIComponent(syncId()) + '&select=data,updated_at';
+  const res = await fetch(url, { headers: supHeaders() });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const rows = await res.json();
+  return rows && rows[0];
+}
+function setSyncState(status, lastAt, error) {
+  syncState = { status, lastAt, error };
+  if (current.page === 'backup') renderBackup();
+}
+function scheduleUpload() {
+  if (!syncCfg) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    pushToCloud().then(() => setSyncState('ok', new Date())).catch(e => setSyncState('fail', null, friendlySyncError(e)));
+  }, 1500);
+}
+function friendlySyncError(e) {
+  const msg = String(e && e.message || e);
+  if (msg === 'Failed to fetch') {
+    return '网络请求失败：请确认项目地址是 https://xxxx.supabase.co 格式（Settings → API 里复制 Project URL），且当前网络能访问 supabase.co';
+  }
+  return msg;
+}
+async function cloudSync(force) {
+  if (!syncCfg) { toast('请先配置云同步', true); return; }
+  setSyncState('busy');
+  try {
+    const cloud = await fetchCloudRow();
+    const localAt = db.updatedAt || '1970-01-01T00:00:00.000Z';
+    if (cloud && force !== 'up') {
+      if (force === 'down' || cloud.updated_at > localAt) {
+        const cd = cloud.data;
+        if (cd && Array.isArray(cd.members) && Array.isArray(cd.wars)) {
+          cd.leagues = Array.isArray(cd.leagues) ? cd.leagues : [];
+          if (typeof cd.clanName !== 'string') cd.clanName = '';
+          db = cd;
+          try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch (e) {}
+          render();
+          setSyncState('ok', new Date());
+          toast('已从云端同步最新数据');
+          return;
+        }
+      }
+    }
+    if (force === 'down') { toast('云端没有有效数据', true); setSyncState('fail', null, '云端无有效数据'); return; }
+    await pushToCloud();
+    setSyncState('ok', new Date());
+    if (force === 'up') toast('已上传本地数据到云端');
+    else if (!cloud) toast('已建立云端备份');
+  } catch (e) {
+    setSyncState('fail', null, friendlySyncError(e));
+    toast('同步失败：' + friendlySyncError(e), true);
+  }
+}
+function initCloudSync() {
+  if (syncCfg) cloudSync();
+}
+
 function save() {
+  db.updatedAt = new Date().toISOString();
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(db));
+    scheduleUpload();
     return true;
   } catch (e) {
     try { toast('⚠️ 浏览器禁止了本地存储，本次数据只在当前页面有效！', true); } catch (e2) {}
@@ -826,6 +926,7 @@ function renderBackup() {
     '<div class="card"><h2>💾 备份与导出</h2>' +
     '<div class="row">' +
       '<button class="btn gold" data-action="export-json">📦 导出全部数据（JSON）</button>' +
+      '<button class="btn blue" data-action="export-snapshot">🧬 导出数据快照（HTML）</button>' +
       '<button class="btn blue" data-action="import-json">📥 导入数据（JSON）</button>' +
       '<button class="btn green" data-action="export-csv-stats">📊 导出成员统计（CSV）</button>' +
       '<button class="btn green" data-action="export-csv-detail">📋 导出进攻明细（CSV）</button>' +
@@ -833,16 +934,59 @@ function renderBackup() {
     '</div>' +
     '<input type="file" id="importFile" accept=".json,application/json" style="display:none">' +
     '<p style="font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.9">' +
-    '· 数据保存在<b>本浏览器的本地存储</b>中，换浏览器或清除浏览器数据会丢失，请定期导出 JSON 备份。<br>' +
+    '· 数据保存在<b>本浏览器的本地存储</b>中，换浏览器或清除浏览器数据会丢失，请定期导出备份。<br>' +
+    '· 🧬 数据快照：把全部数据嵌进一个 HTML 文件，存到网盘/U盘，浏览器数据丢失后打开快照点一下即可恢复。<br>' +
     '· JSON 备份包含全部成员、战争、联赛数据，可在任何电脑的浏览器中导入恢复。<br>' +
     '· CSV 文件可用 Excel / WPS 打开查看。</p></div>' +
+    '<div class="card"><h2>☁️ 云同步 <span class="hint">Supabase · 手机电脑数据互通</span></h2>' + renderSyncCardBody() + '</div>' +
     '<div class="card"><h2>📖 使用说明</h2>' +
     '<div style="font-size:13.5px;line-height:2;color:var(--text)">' +
     '<b>1. 成员</b>：先把部落成员录入（昵称、大本营、职位），离队成员点「离队」保留历史数据。<br>' +
     '<b>2. 普通部落战</b>：新建时勾选参战成员 → 进入详情直接记录每人 2 次进攻：点星数、填摧毁率和目标编号；没打的成员点「标记未进攻」记为缺勤。<br>' +
     '<b>3. 联赛</b>：新建联赛（自动生成 7 场）→ 进入某一场 → 先选名单 → 「🗺 规划目标」指派每人打几号（可用🎲自动分配）→ 「⚔️ 记录结果」填实际数据，自动对比是否按计划完成。<br>' +
     '<b>4. 统计</b>：查看每位成员的出勤率、总星、场均星、三星率等，可按普通战/联赛筛选，点表头排序。<br>' +
-    '<b>5. 备份</b>：定期导出 JSON 备份，换设备时导入即可。</div></div>';
+    '<b>5. 备份</b>：定期导出 JSON 备份，换设备时导入即可。<br>' +
+    '<b>6. 云同步</b>：配置 Supabase 后（见「云同步设置教程」），每次保存自动上传云端，手机电脑打开自动拉取，数据互通不再丢。</div></div>';
+}
+
+/* ================= 云同步卡片 ================= */
+function renderSyncCardBody() {
+  const statusMap = {
+    unset: '<span class="badge gray">未配置</span>',
+    busy: '<span class="badge gold">🔄 同步中…</span>',
+    ok: '<span class="badge green">☁️ 已同步</span>',
+    fail: '<span class="badge red">⚠️ 同步失败</span>'
+  };
+  const st = statusMap[syncState.status] || statusMap.unset;
+  const last = syncState.lastAt ? new Date(syncState.lastAt).toLocaleString('zh-CN') : '—';
+  if (!syncCfg) {
+    return '<div class="row" style="margin-bottom:10px">' + st + '</div>' +
+      '<p style="font-size:12.5px;color:var(--muted);margin-bottom:10px;line-height:1.8">' +
+      '配置 Supabase 后，数据自动同步到云端：<b>手机和电脑打开即可共享同一份数据，再也不会丢</b>。<br>' +
+      '需要先免费注册 supabase.com 并创建数据表，步骤见随附的「云同步设置教程」。</p>' +
+      '<div class="form-grid">' +
+        '<div class="field"><label>Supabase 项目地址（Project URL）</label><input class="inp" id="syUrl" placeholder="https://xxxx.supabase.co"></div>' +
+        '<div class="field"><label>anon 公钥（anon public key）</label><input class="inp" id="syKey" placeholder="eyJhbGciOi..."></div>' +
+        '<div class="field" style="max-width:200px"><label>同步码（可选）</label><input class="inp" id="syId" placeholder="默认 main"></div>' +
+      '</div>' +
+      '<div class="foot" style="justify-content:flex-start;margin-top:4px">' +
+        '<button class="btn gold" data-action="save-sync-cfg">💾 保存并开始同步</button>' +
+      '</div>';
+  }
+  return '<div class="row" style="margin-bottom:10px">' + st +
+    '<span class="badge gray">最后同步：' + last + '</span>' +
+    '<span class="badge gray">同步码：' + esc(syncId()) + '</span></div>' +
+    (syncState.error ? '<p style="font-size:12.5px;color:#b91c1c;margin-bottom:8px;word-break:break-all">' + esc(syncState.error) + '</p>' : '') +
+    '<div class="row">' +
+      '<button class="btn gold" data-action="sync-now">🔄 立即同步</button>' +
+      '<button class="btn" data-action="sync-up">⬆️ 上传本地到云端</button>' +
+      '<button class="btn" data-action="sync-down">⬇️ 下载云端到本地</button>' +
+      '<button class="btn red" data-action="clear-sync">解除配置</button>' +
+    '</div>' +
+    '<p style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.8">' +
+    '· 每次保存数据后约 2 秒自动上传云端；打开页面时自动拉取最新数据。<br>' +
+    '· 冲突规则：比较两边最后修改时间，<b>新者胜</b>；「上传/下载」按钮可强制指定方向。<br>' +
+    '· 手机端：填入相同的项目地址、公钥和同步码即可接入同一份数据。</p>';
 }
 
 /* ================= 弹窗：添加/编辑成员 ================= */
@@ -1046,6 +1190,41 @@ function exportWarText(w) {
   lines.push('已用进攻: ' + used + '/' + (w.participants.length * 2) + '  总星数: ' + stars);
   download('部落战_' + (w.name || w.id).replace(/[\\/:*?"<>|]/g, '_') + '.txt', lines.join('\r\n'));
   toast('已导出本场战报');
+}
+function exportSnapshotHTML() {
+  const now = new Date();
+  const stamp = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const dataJson = JSON.stringify(db).replace(/<\//g, '<\\/');
+  const members = db.members.length;
+  const wars = db.wars.length;
+  const snap = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>部落战统计工具 · 数据快照</title>\n' +
+    '<style>body{font-family:"Segoe UI","Microsoft YaHei",sans-serif;background:#eef2f9;color:#1e2b45;padding:24px 16px}.box{max-width:560px;margin:0 auto;background:#fff;border:1px solid #c9d5e8;border-radius:14px;padding:24px}h1{font-size:19px}p{font-size:13.5px;line-height:1.9;color:#5d6d8c}.btn{display:inline-block;margin:6px 8px 6px 0;padding:10px 18px;border-radius:9px;border:1px solid #c9d5e8;background:#e6ecf7;color:#1e2b45;font-size:14px;cursor:pointer}.btn.gold{background:linear-gradient(135deg,#f7c948,#e0a51f);font-weight:700;border-color:transparent}.ok{color:#15803d;font-weight:700}</style>\n</head>\n<body>\n<div class="box">\n' +
+    '<h1>🧬 部落战统计工具 · 数据快照</h1>\n' +
+    '<p>快照时间：' + stamp + '<br>内容：' + members + ' 名成员 · ' + wars + ' 场战争' + (db.clanName ? ' · 部落「' + esc(db.clanName) + '」' : '') + '</p>\n' +
+    '<p>这是你的数据保险箱：<b>即使浏览器数据被清理，只要打开这个文件，点下面的按钮就能把数据恢复回工具</b>。建议把本文件保存到网盘或 U 盘，并定期重新导出最新快照。</p>\n' +
+    '<button class="btn gold" onclick="restore()">📥 恢复数据到本浏览器</button>\n' +
+    '<button class="btn" onclick="dl()">📦 另存为 JSON 备份</button>\n' +
+    '<p id="msg" class="ok"></p>\n' +
+    '</div>\n' +
+    '<script>\nvar __DATA__ = ' + dataJson + ';\n' +
+    'function restore(){\n' +
+    '  try {\n' +
+    '    localStorage.setItem("coc-war-tracker-v1", JSON.stringify(__DATA__));\n' +
+    '    document.getElementById("msg").textContent = "✅ 恢复成功！现在打开（或刷新 Ctrl+F5）部落战统计工具即可看到数据。";\n' +
+    '  } catch (e) {\n' +
+    '    document.getElementById("msg").textContent = "❌ 恢复失败：" + e.message;\n' +
+    '  }\n' +
+    '}\n' +
+    'function dl(){\n' +
+    '  var blob = new Blob([JSON.stringify(__DATA__, null, 2)], {type: "application/json"});\n' +
+    '  var a = document.createElement("a");\n' +
+    '  a.href = URL.createObjectURL(blob);\n' +
+    '  a.download = "部落战统计_快照恢复.json";\n' +
+    '  a.click();\n' +
+    '}\n' +
+    '<\/script>\n</body>\n</html>';
+  download('部落战数据快照_' + today() + '.html', snap, 'text/html;charset=utf-8');
+  toast('已导出数据快照，请妥善保存');
 }
 
 /* ================= 事件处理 ================= */
@@ -1281,6 +1460,38 @@ document.addEventListener('click', e => {
     case 'import-json': $('#importFile').click(); break;
     case 'export-csv-stats': exportStatsCSV(); break;
     case 'export-csv-detail': exportDetailCSV(); break;
+    case 'export-snapshot': exportSnapshotHTML(); break;
+    case 'save-sync-cfg': {
+      const url = $('#syUrl').value.trim();
+      const key = $('#syKey').value.trim();
+      if (!/^https?:\/\//.test(url)) { toast('请填写正确的项目地址（以 http 开头）', true); return; }
+      if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(url)) {
+        toast('⚠️ 地址格式不对：应为你的项目地址，形如 https://xxxx.supabase.co（在 Settings → API 里复制 Project URL，不是 api.supabase.com）', true);
+        return;
+      }
+      if (!key) { toast('请填写 anon 公钥', true); return; }
+      syncCfg = { url, key, id: ($('#syId').value.trim() || 'main') };
+      try { localStorage.setItem(SYNC_CFG_KEY, JSON.stringify(syncCfg)); } catch (e) {}
+      render();
+      cloudSync();
+      break;
+    }
+    case 'sync-now': cloudSync(); break;
+    case 'sync-up': cloudSync('up'); break;
+    case 'sync-down': {
+      if (!confirm('从云端下载将覆盖本机的数据，确定继续？')) return;
+      cloudSync('down');
+      break;
+    }
+    case 'clear-sync': {
+      if (!confirm('解除云同步配置？本机数据保留，只是不再自动同步。')) return;
+      syncCfg = null;
+      try { localStorage.removeItem(SYNC_CFG_KEY); } catch (e) {}
+      syncState = { status: 'unset', lastAt: null, error: '' };
+      render();
+      toast('已解除云同步配置');
+      break;
+    }
     case 'export-war': {
       const w = warById(id);
       if (w) exportWarText(w);
@@ -1405,6 +1616,7 @@ function openMemberEdit(id) {
 
 /* ================= 启动 ================= */
 render();
+initCloudSync();
 </script>
 </body>
 </html>
