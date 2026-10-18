@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>部落冲突 · 部落战统计工具</title>
+<style>
+  :root {
+    --bg: #eef2f9;
+    --bg2: #f7f9fd;
+    --card: #ffffff;
+    --card2: #e6ecf7;
+    --line: #c9d5e8;
+    --text: #1e2b45;
+    --muted: #5d6d8c;
+    --gold: #d99a06;
+    --gold-dark: #b8860b;
+    --blue: #2563eb;
+    --green: #16a34a;
+    --red: #dc2626;
+    --purple: #7c3aed;
+    --star: #d97706;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    background:
+      radial-gradient(1200px 500px at 20% -10%, #dbe7ff 0%, transparent 60%),
+      radial-gradient(900px 400px at 90% -10%, #efe0ff 0%, transparent 60%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100%;
+  }
+  .app { max-width: 1180px; margin: 0 auto; padding: 0 16px 80px; }
+  header.top {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 14px 4px 10px;
+    background: linear-gradient(to bottom, rgba(238,242,249,.97) 80%, rgba(238,242,249,0));
+    backdrop-filter: blur(6px);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: linear-gradient(135deg, #f7c948, #c97b1e);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; box-shadow: 0 3px 10px rgba(247,201,72,.25);
+  }
+  .brand h1 { font-size: 14px; letter-spacing: .5px; }
+  .brand .sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .clan-banner { text-align: center; padding: 16px 8px 2px; }
+  .clan-banner .clan-name {
+    display: inline-block; margin: 0; font-size: 34px; font-weight: 800;
+    letter-spacing: 1px; color: var(--text); cursor: pointer;
+    border-bottom: 3px dashed transparent; transition: border-color .15s;
+  }
+  .clan-banner .clan-name:hover { border-color: var(--gold); }
+  .clan-banner .coc-icon { vertical-align: -8px; margin-right: 6px; }
+  .clan-banner .clan-edit-tip { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  nav.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab {
+    border: 1px solid var(--line); background: var(--card); color: var(--muted);
+    padding: 9px 16px; border-radius: 10px; cursor: pointer; font-size: 14px;
+    transition: all .15s;
+  }
+  .tab:hover { color: var(--text); border-color: var(--blue); background: #f2f6fd; }
+  .tab.active { background: linear-gradient(135deg, #f7c948, #e0a51f); color: #231a04; border-color: transparent; font-weight: 700; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .empty {
+    text-align: center; color: var(--muted); padding: 42px 16px; font-size: 14px; line-height: 1.9;
+  }
+  .empty .big { font-size: 40px; display: block; margin-bottom: 8px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid var(--line); background: var(--card2); color: var(--text);
+    padding: 8px 14px; border-radius: 9px; cursor: pointer; font-size: 13.5px;
+    transition: filter .12s, transform .05s;
+    min-height: 36px;
+  }
+  .btn:hover { filter: brightness(.96); }
+  .btn:active { transform: scale(.97); }
+  .btn.gold { background: linear-gradient(135deg, #f7c948, #e0a51f); color: #231a04; font-weight: 700; border-color: transparent; }
+  .btn.gold:hover { filter: brightness(1.05); }
+  .btn.blue { background: #2563eb; border-color: transparent; color: #fff; }
+  .btn.red { background: #dc2626; border-color: transparent; color: #fff; }
+  .btn.green { background: #16a34a; border-color: transparent; color: #fff; }
+  .btn.ghost { background: transparent; }
+  .btn.sm { padding: 5px 10px; font-size: 12.5px; min-height: 30px; border-radius: 7px; }
+  .btn.mini { padding: 2px 7px; font-size: 11px; min-height: 22px; border-radius: 6px; gap: 3px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.will-yes { background: rgba(22,163,74,.16); color: #15803d; border-color: rgba(22,163,74,.5); font-weight: 600; }
+  .btn.will-no { background: rgba(220,38,38,.16); color: #b91c1c; border-color: rgba(220,38,38,.5); font-weight: 600; }
+  .btn.no-show-on { background: rgba(220,38,38,.16); color: #b91c1c; border-color: rgba(220,38,38,.5); font-weight: 600; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1; }
+  .right { margin-left: auto; }
+
+  .inp, select.inp {
+    background: #ffffff; border: 1px solid var(--line); color: var(--text);
+    border-radius: 8px; padding: 8px 10px; font-size: 13.5px; min-height: 36px;
+    outline: none; width: 100%;
+  }
+  .inp:focus { border-color: var(--gold); }
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; flex: 1; min-width: 150px; }
+  .field label { font-size: 12.5px; color: var(--muted); }
+  .form-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.tbl th, table.tbl td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.tbl th { color: var(--muted); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+  table.tbl tr:hover td { background: rgba(37,99,235,.06); }
+  table.tbl td.num, table.tbl th.num { text-align: center; }
+  .tbl-scroll { overflow-x: auto; }
+
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px;
+    font-weight: 600; white-space: nowrap;
+  }
+  .badge.blue { background: rgba(37,99,235,.12); color: #1d4ed8; }
+  .badge.purple { background: rgba(124,58,237,.12); color: #6d28d9; }
+  .badge.gold { background: rgba(217,154,6,.15); color: #a16207; }
+  .badge.green { background: rgba(22,163,74,.12); color: #15803d; }
+  .badge.red { background: rgba(220,38,38,.12); color: #b91c1c; }
+  .badge.gray { background: rgba(100,116,139,.14); color: #475569; }
+  .th-badge { font-weight: 700; font-size: 11px; }
+
+  .atk {
+    display: flex; flex-direction: column; gap: 4px; min-width: 150px;
+    padding: 6px 8px; border-radius: 10px; background: #f4f7fc; border: 1px solid var(--line);
+  }
+  .atk.done { border-color: #9db4d8; background: #eaf1fb; }
+  .atk-ns {
+    display: flex; align-items: center; justify-content: center; min-width: 150px; min-height: 64px;
+    border-radius: 10px; border: 1px dashed #e2b3b3; background: #fdf1f1;
+    color: #b91c1c; font-weight: 600; font-size: 13px;
+  }
+  .atk .stars { display: flex; gap: 3px; }
+  .sb {
+    flex: 1; border: 1px solid var(--line); background: #ffffff; color: var(--muted);
+    border-radius: 6px; cursor: pointer; font-size: 11.5px; padding: 4px 0; min-height: 26px;
+    letter-spacing: 0;
+  }
+  .sb:hover { filter: brightness(1.3); }
+  .sb.sel { border-color: transparent; color: #10131a; font-weight: 700; }
+  .sb.s0.sel { background: #ff6b6b; }
+  .sb.s1.sel { background: #4da3ff; }
+  .sb.s2.sel { background: #b07cff; }
+  .sb.s3.sel { background: var(--star); }
+  .atk .mini { display: flex; gap: 4px; }
+  .atk input.inp { padding: 4px 6px; font-size: 12.5px; min-height: 28px; text-align: center; }
+  .atk input.inp::-webkit-inner-spin-button { opacity: .4; }
+
+  .sum-stars { font-weight: 700; color: var(--star); white-space: nowrap; font-size: 14px; }
+  .member-cell .nm { font-weight: 600; }
+  .member-cell .meta { font-size: 11.5px; color: var(--muted); }
+  .plan-target { font-weight: 700; }
+  .plan-hit { color: var(--green); }
+  .plan-miss { color: var(--red); }
+  .plan-none { color: var(--muted); }
+
+  .progress-wrap { height: 8px; background: #dde5f2; border-radius: 999px; overflow: hidden; flex: 1; min-width: 120px; }
+  .progress-in { height: 100%; background: linear-gradient(90deg, #f7c948, #e0a51f); border-radius: 999px; transition: width .25s; }
+  .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .stat-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .stat-card .v { font-size: 22px; font-weight: 800; color: var(--gold); }
+  .stat-card .k { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--card); color: var(--muted);
+    padding: 6px 14px; border-radius: 999px; cursor: pointer; font-size: 13px;
+  }
+  .chip.active { background: var(--gold); color: #231a04; border-color: transparent; font-weight: 700; }
+
+  .war-item {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: border-color .15s;
+  }
+  .war-item:hover { border-color: var(--blue); }
+  .war-item .t { font-weight: 700; font-size: 15px; }
+  .war-item .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .league-group { border-left: 3px solid var(--purple); padding-left: 14px; margin: 18px 0 22px; }
+  .league-group .lg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .league-group .lg-name { font-weight: 800; font-size: 16px; }
+
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(30,41,59,.45); z-index: 100;
+    display: flex; align-items: flex-start; justify-content: center; padding: 7vh 14px 40px;
+    overflow-y: auto;
+  }
+  .modal-mask[hidden] { display: none; }
+  .modal {
+    background: #ffffff; border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; width: 100%; max-width: 620px; box-shadow: 0 20px 50px rgba(30,41,59,.25);
+  }
+  .modal h3 { font-size: 17px; margin-bottom: 14px; }
+  .modal .foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+  .check-list { max-height: 300px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #f4f7fc; }
+  .check-item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+  .check-item:hover { background: var(--card2); }
+  .check-item input { accent-color: #f7c948; width: 16px; height: 16px; cursor: pointer; }
+  .check-item .meta { font-size: 11.5px; color: var(--muted); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(80px);
+    background: #ffffff; border: 1px solid #b9c9e2; color: var(--text);
+    padding: 11px 22px; border-radius: 10px; font-size: 14px; z-index: 200;
+    transition: transform .25s; box-shadow: 0 8px 30px rgba(30,41,59,.2); max-width: 90vw;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.err { border-color: #dc2626; background: #fdeaea; color: #b91c1c; }
+
+  .plan-chip { display: inline-block; min-width: 34px; text-align: center; padding: 3px 8px; border-radius: 7px; background: #ffffff; border: 1px solid var(--line); font-size: 12.5px; font-weight: 700; }
+  .plan-chip.over { border-color: var(--red); color: var(--red); }
+
+  @media (max-width: 760px) {
+    .brand h1 { font-size: 13px; }
+    .tab { padding: 8px 11px; font-size: 13px; }
+    .atk { min-width: 128px; }
+    .stat-cards { grid-template-columns: repeat(2, 1fr); }
+    .clan-banner .clan-name { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="logo">⚔️</span>
+      <div>
+        <h1>部落战统计工具</h1>
+        <p class="sub">Clash of Clans · 成员 · 战争 · 联赛</p>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab" data-nav="members">👥 成员</button>
+      <button class="tab" data-nav="wars">⚔️ 部落战</button>
+      <button class="tab" data-nav="stats">📊 统计</button>
+      <button class="tab" data-nav="backup">💾 备份</button>
+    </nav>
+  </header>
+  <div class="clan-banner">
+    <h1 class="clan-name" id="clanNameEl" data-action="edit-clan" title="点击修改部落名称"><svg class="coc-icon" width="28" height="32" viewBox="0 0 30 34" aria-hidden="true"><path d="M15 1 L28 5.5 V17 C28 25.5 22 31.5 15 34 C8 31.5 2 25.5 2 17 V5.5 Z" fill="#2b5fbd" stroke="#f7c948" stroke-width="2"/><path d="M15 8.5 V21" stroke="#f7c948" stroke-width="2.2" stroke-linecap="round"/><path d="M11.5 15 H18.5" stroke="#f7c948" stroke-width="2.2" stroke-linecap="round"/><path d="M15 21 V23.5" stroke="#f7c948" stroke-width="2" stroke-linecap="round"/></svg> 我的部落</h1>
+    <span class="clan-edit-tip">✏️ 点击上方名称即可修改部落名称</span>
+  </div>
+  <main id="main"></main>
+</div>
+<div class="modal-mask" id="modalMask" hidden></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ================= 基础 ================= */
+const LS_KEY = 'coc-war-tracker-v1';
+const $ = s => document.querySelector(s);
+const main = $('#main');
+const mask = $('#modalMask');
+const toastEl = $('#toast');
+
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.members) && Array.isArray(d.wars)) {
+        d.leagues = Array.isArray(d.leagues) ? d.leagues : [];
+        if (typeof d.clanName !== 'string') d.clanName = '';
+        return d;
+      }
+    }
+  } catch (e) { /* 数据损坏则重建 */ }
+  return { members: [], wars: [], leagues: [] };
+}
+let db = loadDB();
+let current = { page: 'members', warId: null, leagueTab: 'record', statFilter: 'all', sortKey: 'stars', sortDir: -1, memberSearch: '' };
+
+function save() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(db));
+    return true;
+  } catch (e) {
+    try { toast('⚠️ 浏览器禁止了本地存储，本次数据只在当前页面有效！', true); } catch (e2) {}
+    return false;
+  }
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function today() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function starsText(n) { return '★'.repeat(n) || '0'; }
+function memberMap() {
+  const m = {};
+  db.members.forEach(x => m[x.id] = x);
+  return m;
+}
+function memberName(id) {
+  const m = memberMap()[id];
+  return m ? m.name : '(已删除成员)';
+}
+function clamp(v, min, max) {
+  v = parseInt(v, 10);
+  if (isNaN(v)) return null;
+  return Math.min(max, Math.max(min, v));
+}
+function cleanTag(v) {
+  if (v == null) return '';
+  const body = String(v).trim().toUpperCase().replace(/[^#A-Z0-9]/g, '').replace(/#/g, '').slice(0, 9);
+  return body ? '#' + body : '';
+}
+function fallbackCopy(text, done, fail) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand && document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) done(); else fail();
+  } catch (e) { fail(); }
+}
+function copyText(text) {
+  text = String(text == null ? '' : text);
+  if (!text) { toast('没有可复制的内容', true); return; }
+  const done = () => toast('已复制：' + text);
+  const fail = () => toast('复制失败，请手动复制', true);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done, fail));
+  } else {
+    fallbackCopy(text, done, fail);
+  }
+}
+function toast(msg, isErr) {
+  toastEl.textContent = msg;
+  toastEl.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 2200);
+}
+
+/* ================= 弹窗 ================= */
+function openModal(html) {
+  mask.innerHTML = '<div class="modal">' + html + '</div>';
+  mask.hidden = false;
+}
+function closeModal() { mask.hidden = true; mask.innerHTML = ''; }
+mask.addEventListener('click', e => { if (e.target === mask) closeModal(); });
+
+/* ================= 导航 / 渲染 ================= */
+function go(page, warId) {
+  current.page = page;
+  if (warId !== undefined) current.warId = warId;
+  render();
+}
+const COC_ICON = '<svg class="coc-icon" width="28" height="32" viewBox="0 0 30 34" aria-hidden="true"><path d="M15 1 L28 5.5 V17 C28 25.5 22 31.5 15 34 C8 31.5 2 25.5 2 17 V5.5 Z" fill="#2b5fbd" stroke="#f7c948" stroke-width="2"/><path d="M15 8.5 V21" stroke="#f7c948" stroke-width="2.2" stroke-linecap="round"/><path d="M11.5 15 H18.5" stroke="#f7c948" stroke-width="2.2" stroke-linecap="round"/><path d="M15 21 V23.5" stroke="#f7c948" stroke-width="2" stroke-linecap="round"/></svg>';
+function renderClanBanner() {
+  const el = $('#clanNameEl');
+  if (el) el.innerHTML = COC_ICON + ' ' + esc(db.clanName ? db.clanName : '我的部落');
+}
+function render() {
+  renderClanBanner();
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.nav === current.page));
+  if (current.page === 'members') renderMembers();
+  else if (current.page === 'wars') renderWars();
+  else if (current.page === 'war') renderWarDetail();
+  else if (current.page === 'stats') renderStats();
+  else if (current.page === 'backup') renderBackup();
+  window.scrollTo({ top: 0 });
+}
+
+/* ================= 成员页 ================= */
+function renderMembers() {
+  main.innerHTML =
+    '<div class="card"><h2>➕ 添加成员</h2>' +
+    '<div class="form-grid">' +
+      '<div class="field"><label>游戏昵称 *</label><input class="inp" id="mName" placeholder="如：野蛮人之王"></div>' +
+      '<div class="field" style="max-width:180px"><label>玩家标签</label><input class="inp" id="mTag" value="#" maxlength="10" placeholder="#ABCD12345"></div>' +
+      '<div class="field" style="max-width:130px"><label>大本营等级</label><select class="inp" id="mTh">' +
+        Array.from({length: 13}, (_, i) => { const t = 18 - i; return '<option value="' + t + '">' + t + ' 本</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="field" style="max-width:150px"><label>职位</label><select class="inp" id="mRole">' +
+        ['成员', '长老', '副首领', '首领'].map(r => '<option>' + r + '</option>').join('') +
+      '</select></div>' +
+      '<div class="field" style="max-width:160px"><label>出战意愿</label><select class="inp" id="mWill">' +
+        '<option value="1">✅ 愿意出战</option><option value="0">🚫 不愿出战</option>' +
+      '</select></div>' +
+      '<div class="field" style="max-width:90px;justify-content:flex-end"><label>&nbsp;</label><button class="btn gold" data-action="add-member">添加</button></div>' +
+    '</div></div>' +
+    '<div class="card"><h2>👥 成员列表 <span class="hint" id="memberHint"></span></h2>' +
+    '<div class="row" style="margin-bottom:12px">' +
+      '<input class="inp" id="memberSearch" style="max-width:340px" placeholder="🔍 搜索昵称 / 标签 / 职位 / 本数" value="' + esc(current.memberSearch || '') + '">' +
+      '<span class="badge gray">共 ' + db.members.length + ' 名成员</span>' +
+    '</div>' +
+    '<div id="memberListWrap"></div>' +
+    '</div>';
+  renderMemberList();
+}
+
+function renderMemberList() {
+  const q = (current.memberSearch || '').trim().toLowerCase();
+  const match = m => !q ||
+    (m.name || '').toLowerCase().includes(q) ||
+    (m.tag || '').toLowerCase().includes(q) ||
+    (m.role || '').toLowerCase().includes(q) ||
+    String(m.th || '').includes(q);
+  const actives = db.members.filter(m => m.active !== false && match(m));
+  const lefts = db.members.filter(m => m.active === false && match(m));
+  const hint = $('#memberHint');
+  if (hint) hint.textContent = '活跃 ' + actives.length + ' 人 · 离队 ' + lefts.length + ' 人' + (q ? '（已过滤）' : '');
+  const wrap = $('#memberListWrap');
+  if (!wrap) return;
+  if (db.members.length === 0) {
+    wrap.innerHTML = '<div class="empty"><span class="big">🏰</span>还没有成员，先在上方添加吧～<br>建议把部落里所有成员都录进来，方便每次开战勾选。</div>';
+    return;
+  }
+  if (actives.length === 0 && lefts.length === 0) {
+    wrap.innerHTML = '<div class="empty"><span class="big">🔍</span>没有找到匹配「' + esc(q) + '」的成员。</div>';
+    return;
+  }
+  const rows = m => m.map(x => {
+    const played = db.wars.filter(w => w.participants.includes(x.id)).length;
+    return '<tr>' +
+      '<td><div class="member-cell"><div class="nm">' + esc(x.name) + '</div>' +
+      '<div class="meta">' + (x.tag ? esc(x.tag) : '') + '</div>' +
+      '<div class="row" style="margin-top:3px;gap:4px">' +
+        '<button class="btn sm mini" data-action="copy-member" data-id="' + x.id + '" title="复制昵称和标签到剪贴板（空格隔开）">📋 复制</button>' +
+      '</div></div></td>' +
+      '<td class="num"><span class="badge gold th-badge">' + esc(x.th || '?') + '本</span></td>' +
+      '<td>' + esc(x.role || '成员') + '</td>' +
+      '<td class="num">' + played + '</td>' +
+      '<td class="num">' + (x.willWar === false
+        ? '<button class="btn sm will-no" data-action="toggle-will" data-id="' + x.id + '" title="点击切换">🚫 不愿出战</button>'
+        : '<button class="btn sm will-yes" data-action="toggle-will" data-id="' + x.id + '" title="点击切换">✅ 愿意出战</button>') + '</td>' +
+      '<td class="num"><div class="row" style="justify-content:flex-end">' +
+        '<button class="btn sm" data-action="edit-member" data-id="' + x.id + '">编辑</button>' +
+        (x.active === false
+          ? '<button class="btn sm green" data-action="toggle-member" data-id="' + x.id + '">回归</button>'
+          : '<button class="btn sm ghost" data-action="toggle-member" data-id="' + x.id + '">离队</button>') +
+        '<button class="btn sm red" data-action="del-member" data-id="' + x.id + '">删除</button>' +
+      '</div></td></tr>';
+  }).join('');
+  wrap.innerHTML =
+    (actives.length
+      ? '<div class="tbl-scroll"><table class="tbl"><thead><tr>' +
+        '<th>昵称</th><th class="num">大本营</th><th>职位</th><th class="num">累计出战</th><th class="num">出战意愿</th><th class="num">操作</th>' +
+        '</tr></thead><tbody>' + rows(actives) + '</tbody></table></div>'
+      : '') +
+    (lefts.length
+      ? '<h2 style="margin-top:18px">🚪 已离队成员 <span class="hint">历史记录仍保留</span></h2>' +
+        '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>昵称</th><th class="num">大本营</th><th>职位</th><th class="num">累计出战</th><th class="num">出战意愿</th><th class="num">操作</th></tr></thead><tbody>' +
+        rows(lefts) + '</tbody></table></div>'
+      : '');
+}
+
+/* ================= 部落战页 ================= */
+function renderWars() {
+  const normalWars = db.wars.filter(w => w.type === 'normal').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const leagueWars = db.wars.filter(w => w.type === 'league');
+  const leagueGroups = db.leagues.map(lg => ({
+    lg,
+    wars: leagueWars.filter(w => w.leagueId === lg.id).sort((a, b) => (a.battleNo || 0) - (b.battleNo || 0))
+  }));
+
+  const warCard = w => {
+    const noShowCount = w.participants.filter(mid => w.noShows && w.noShows[mid]).length;
+    const due = (w.participants.length - noShowCount) * 2;
+    const rec = w.records || {};
+    let used = 0, stars = 0;
+    w.participants.forEach(mid => {
+      if (w.noShows && w.noShows[mid]) return;
+      const arr = rec[mid] || [null, null];
+      arr.forEach(a => { if (a) { used++; stars += a.stars || 0; } });
+    });
+    const pct = due ? Math.round(used / due * 100) : 0;
+    const resultBadge = { win: '<span class="badge green">🏆 胜利</span>', loss: '<span class="badge red">💀 失败</span>', draw: '<span class="badge gray">🤝 平局</span>' }[w.result] || '<span class="badge gray">进行中</span>';
+    const typeBadge = w.type === 'league' ? '<span class="badge purple">联赛</span>' : '<span class="badge blue">普通战</span>';
+    return '<div class="war-item" data-action="open-war" data-id="' + w.id + '">' +
+      '<div style="min-width:180px;flex:1"><div class="t">' +
+      (w.type === 'league' ? '第 ' + w.battleNo + ' 场 · ' : '') + esc(w.name) + '</div>' +
+      '<div class="s">' + (w.opponent ? '对手：' + esc(w.opponent) + ' · ' : '') + (w.date || '无日期') + ' · ' + w.participants.length + 'v' + w.participants.length + '</div></div>' +
+      '<div class="row" style="flex:1;min-width:190px">' +
+        '<div class="progress-wrap"><div class="progress-in" style="width:' + pct + '%"></div></div>' +
+        '<span class="badge gray">' + used + '/' + due + '</span>' +
+      '</div>' +
+      '<span class="badge gold">⭐ ' + stars + '</span>' +
+      (noShowCount ? '<span class="badge red">🚫 缺勤 ' + noShowCount + '</span>' : '') +
+      typeBadge + resultBadge +
+      '<button class="btn sm ghost" data-action="del-war" data-id="' + w.id + '">🗑</button>' +
+      '</div>';
+  };
+
+  const leagueBlock = lg => {
+    let allDue = 0, absent = 0;
+    lg.wars.forEach(w => {
+      const ns = w.participants.filter(mid => w.noShows && w.noShows[mid]).length;
+      absent += ns;
+      allDue += (w.participants.length - ns) * 2;
+    });
+    let used = 0, stars = 0;
+    lg.wars.forEach(w => {
+      const rec = w.records || {};
+      w.participants.forEach(mid => {
+        if (w.noShows && w.noShows[mid]) return;
+        (rec[mid] || [null, null]).forEach(a => { if (a) { used++; stars += a.stars || 0; } });
+      });
+    });
+    return '<div class="league-group">' +
+      '<div class="lg-head"><span class="lg-name">🏆 ' + esc(lg.lg.name) + '</span>' +
+      '<span class="badge purple">' + lg.wars.length + ' 场</span>' +
+      '<span class="badge gray">已进攻 ' + used + '/' + allDue + '</span>' +
+      (absent ? '<span class="badge red">🚫 缺勤 ' + absent + '</span>' : '') +
+      '<span class="badge gold">⭐ ' + stars + '</span>' +
+      '<button class="btn sm ghost" data-action="del-league" data-id="' + lg.lg.id + '">🗑 删除联赛</button></div>' +
+      (lg.wars.length ? lg.wars.map(warCard).join('') : '<div class="empty">暂无场次</div>') +
+      '</div>';
+  };
+
+  main.innerHTML =
+    '<div class="card"><h2>⚔️ 部落战</h2>' +
+    '<div class="row">' +
+      '<button class="btn gold" data-action="new-normal">➕ 新建普通部落战</button>' +
+      '<button class="btn blue" data-action="new-league">🏆 新建联赛</button>' +
+    '</div></div>' +
+    (normalWars.length === 0 && db.leagues.length === 0
+      ? '<div class="card"><div class="empty"><span class="big">🛡️</span>还没有部落战记录。<br>点击上方按钮创建：<br><b>普通部落战</b>：直接记录每人 2 次进攻的星数、摧毁率、目标。<br><b>联赛</b>：先规划每人打谁，再记录实际结果并对比。</div></div>'
+      : '') +
+    leagueGroups.map(leagueBlock).join('') +
+    (normalWars.length
+      ? '<div class="league-group" style="border-left-color:#4da3ff"><div class="lg-head"><span class="lg-name">⚔️ 普通部落战</span><span class="badge blue">' + normalWars.length + ' 场</span></div>' +
+        normalWars.map(warCard).join('') + '</div>'
+      : '');
+}
+
+/* ================= 战争详情页 ================= */
+function warById(id) { return db.wars.find(w => w.id === id); }
+
+function atkCell(w, mid, slot) {
+  const arr = (w.records && w.records[mid]) || [null, null];
+  const a = arr[slot] || null;
+  const maxTgt = w.type === 'league' ? 15 : 50;
+  const sels = [0, 1, 2, 3].map(s => {
+    const sel = a && a.stars === s;
+    return '<button class="sb s' + s + (sel ? ' sel' : '') + '" data-action="set-star" data-mid="' + mid + '" data-slot="' + slot + '" data-s="' + s + '" title="' + s + ' 星">' + (s === 0 ? '0' : starsText(s)) + '</button>';
+  }).join('');
+  return '<div class="atk' + (a ? ' done' : '') + '">' +
+    '<div class="stars">' + sels + '</div>' +
+    '<div class="mini">' +
+      '<input class="inp" type="number" min="0" max="100" step="1" placeholder="摧毁%" title="摧毁率 %" value="' + (a && a.dest != null ? a.dest : '') + '" data-field="dest" data-mid="' + mid + '" data-slot="' + slot + '">' +
+      '<input class="inp" type="number" min="1" max="' + maxTgt + '" step="1" placeholder="目标" title="进攻目标编号" value="' + (a && a.target != null ? a.target : '') + '" data-field="target" data-mid="' + mid + '" data-slot="' + slot + '">' +
+    '</div></div>';
+}
+
+function renderWarDetail() {
+  const w = warById(current.warId);
+  if (!w) { go('wars'); return; }
+  const mm = memberMap();
+  const lg = db.leagues.find(l => l.id === w.leagueId);
+  const noShowCount = w.participants.filter(mid => w.noShows && w.noShows[mid]).length;
+  const due = (w.participants.length - noShowCount) * 2;
+  const rec = w.records || {};
+  let used = 0, stars = 0, destSum = 0, destCnt = 0, three = 0;
+  w.participants.forEach(mid => {
+    if (w.noShows && w.noShows[mid]) return;
+    (rec[mid] || [null, null]).forEach(a => {
+      if (a) {
+        used++; stars += a.stars || 0;
+        if (a.dest != null) { destSum += a.dest; destCnt++; }
+        if (a.stars === 3) three++;
+      }
+    });
+  });
+  const pct = due ? Math.round(used / due * 100) : 0;
+  const avgDest = destCnt ? (destSum / destCnt).toFixed(1) : '-';
+
+  const plans = w.plans || {};
+  const planCounts = {};
+  for (let i = 1; i <= 15; i++) planCounts[i] = 0;
+  w.participants.forEach(mid => { const p = plans[mid]; if (p) planCounts[p] = (planCounts[p] || 0) + 1; });
+
+  const resultBtn = (key, label) =>
+    '<button class="btn sm ' + (w.result === key ? 'gold' : 'ghost') + '" data-action="set-result" data-id="' + w.id + '" data-r="' + key + '">' + label + '</button>';
+
+  const recordRows = w.participants.map(mid => {
+    const m = mm[mid];
+    const arr = rec[mid] || [null, null];
+    const rowStars = (arr[0] ? (arr[0].stars || 0) : 0) + (arr[1] ? (arr[1].stars || 0) : 0);
+    const ns = !!(w.noShows && w.noShows[mid]);
+    return '<tr' + (ns ? ' style="opacity:.55"' : '') + '>' +
+      '<td><div class="member-cell"><div class="nm">' + esc(m ? m.name : memberName(mid)) + '</div>' +
+      '<div class="meta">' + (m ? (m.th ? m.th + ' 本 · ' : '') + esc(m.role || '成员') : '') + '</div>' +
+      '<button class="btn sm ' + (ns ? 'no-show-on' : 'ghost') + '" data-action="toggle-noshow" data-mid="' + mid + '" style="margin-top:4px">' +
+      (ns ? '🚫 未进攻' : '标记未进攻') + '</button></div></td>' +
+      '<td>' + (ns ? '<div class="atk-ns">未进攻</div>' : atkCell(w, mid, 0)) + '</td>' +
+      '<td>' + (ns ? '<div class="atk-ns">未进攻</div>' : atkCell(w, mid, 1)) + '</td>' +
+      '<td class="num"><span class="sum-stars">' + (ns ? '缺勤' : (arr[0] || arr[1] ? starsText(rowStars) : '-')) + '</span></td>' +
+      (w.type === 'league' ? '<td class="num">' + planBadge(plans[mid], arr) + '</td>' : '') +
+      '</tr>';
+  }).join('');
+
+  function planBadge(p, arr) {
+    if (p == null) return '<span class="plan-none">未规划</span>';
+    const actual = [arr[0], arr[1]].filter(a => a).map(a => a.target);
+    const hit = actual.includes(p);
+    return '<span class="plan-target">#' + p + '</span>' +
+      (actual.length ? (hit ? ' <span class="plan-hit">✓ 完成</span>' : ' <span class="plan-miss">✗ 实际 ' + actual.map(t => '#' + t).join('、') + '</span>') : ' <span class="plan-none">待进攻</span>');
+  }
+
+  const planRows = w.participants.map(mid => {
+    const m = mm[mid];
+    const p = plans[mid];
+    const ns = !!(w.noShows && w.noShows[mid]);
+    return '<tr' + (ns ? ' style="opacity:.55"' : '') + '>' +
+      '<td><div class="member-cell"><div class="nm">' + esc(m ? m.name : memberName(mid)) + '</div>' +
+      '<div class="meta">' + (m ? (m.th ? m.th + ' 本 · ' : '') + esc(m.role || '成员') : '') + '</div>' +
+      '<button class="btn sm ' + (ns ? 'no-show-on' : 'ghost') + '" data-action="toggle-noshow" data-mid="' + mid + '" style="margin-top:4px">' +
+      (ns ? '🚫 未进攻' : '标记未进攻') + '</button></div></td>' +
+      '<td><select class="inp" style="max-width:120px" data-action="set-plan" data-mid="' + mid + '">' +
+        '<option value="">未指派</option>' +
+        Array.from({ length: 15 }, (_, i) => '<option value="' + (i + 1) + '"' + (p === i + 1 ? ' selected' : '') + '>对手 #' + (i + 1) + '</option>').join('') +
+      '</select></td>' +
+      '<td class="num">' + planBadge(p, rec[mid] || [null, null]) + '</td>' +
+      '</tr>';
+  }).join('');
+
+  const planOverview = Object.keys(planCounts).map(i =>
+    '<span class="plan-chip' + (planCounts[i] > 1 ? ' over' : '') + '" title="对手 #' + i + ' 被 ' + planCounts[i] + ' 人瞄准">#' + i + ' ×' + planCounts[i] + '</span>'
+  ).join(' ');
+
+  const isLeague = w.type === 'league';
+  const tabBtn = (k, label) =>
+    '<button class="btn sm ' + (current.leagueTab === k ? 'gold' : 'ghost') + '" data-action="league-tab" data-t="' + k + '">' + label + '</button>';
+
+  main.innerHTML =
+    '<div class="card">' +
+    '<div class="row">' +
+      '<button class="btn ghost" data-action="back-wars">← 返回</button>' +
+      '<div class="grow"><h2 style="margin:0">' + (isLeague ? '第 ' + w.battleNo + ' 场 · ' : '') + esc(w.name) + '</h2>' +
+      '<div class="s" style="font-size:12px;color:var(--muted);margin-top:3px">' +
+        (w.opponent ? '对手：' + esc(w.opponent) + ' · ' : '') + (w.date || '无日期') + ' · ' + w.participants.length + 'v' + w.participants.length +
+        (lg ? ' · ' + esc(lg.name) : '') +
+      '</div></div>' +
+      '<div class="row">' + resultBtn('win', '🏆 胜') + resultBtn('loss', '💀 负') + resultBtn('draw', '🤝 平') + resultBtn('pending', '进行中') + '</div>' +
+    '</div>' +
+    '<div class="row" style="margin-top:14px">' +
+      '<div class="progress-wrap"><div class="progress-in" style="width:' + pct + '%"></div></div>' +
+      '<span class="badge gray">已进攻 ' + used + '/' + due + '</span>' +
+      '<button class="btn sm blue" data-action="edit-war" data-id="' + w.id + '">✏️ 编辑信息</button>' +
+      '<button class="btn sm" data-action="edit-participants" data-id="' + w.id + '">👥 名单</button>' +
+      '<button class="btn sm" data-action="export-war" data-id="' + w.id + '">📋 导出本场</button>' +
+      '<button class="btn sm red" data-action="del-war" data-id="' + w.id + '">🗑 删除</button>' +
+    '</div></div>' +
+    '<div class="stat-cards">' +
+      '<div class="stat-card"><div class="v">' + used + '<span style="font-size:13px">/' + due + '</span></div><div class="k">已用进攻</div></div>' +
+      '<div class="stat-card"><div class="v">' + noShowCount + '</div><div class="k">未进攻（缺勤）</div></div>' +
+      '<div class="stat-card"><div class="v">' + stars + '</div><div class="k">总星数</div></div>' +
+      '<div class="stat-card"><div class="v">' + (due ? (stars / (due * 3) * 100).toFixed(1) + '<span style="font-size:13px">%</span>' : '-') + '</div><div class="k">满星率（占应有）</div></div>' +
+      '<div class="stat-card"><div class="v">' + avgDest + '<span style="font-size:13px">%</span></div><div class="k">平均摧毁率</div></div>' +
+      '<div class="stat-card"><div class="v">' + three + '</div><div class="k">三星次数</div></div>' +
+    '</div>' +
+    (w.participants.length === 0
+      ? '<div class="card"><div class="empty"><span class="big">🎯</span>本场还没有参战成员。<br>点击上方「👥 名单」选择参战成员。</div></div>'
+      : (isLeague
+        ? '<div class="card">' +
+          '<div class="row" style="margin-bottom:12px">' + tabBtn('plan', '🗺 规划目标') + tabBtn('record', '⚔️ 记录结果') +
+          '<span class="right" style="font-size:12px;color:var(--muted)">' + (current.leagueTab === 'plan' ? '先规划每人打几号，再切换「记录结果」填写实际数据' : '记录每位成员 2 次进攻的实际情况') + '</span></div>' +
+          (current.leagueTab === 'plan'
+            ? '<div class="row" style="margin-bottom:10px">' +
+                '<button class="btn gold sm" data-action="auto-plan">🎲 自动分配（每人一个不同目标）</button>' +
+                '<button class="btn ghost sm" data-action="clear-plan">清空规划</button>' +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">目标覆盖情况：</div>' +
+              '<div class="row" style="gap:5px;margin-bottom:14px">' + planOverview + '</div>' +
+              '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>成员</th><th>计划目标</th><th class="num">完成情况</th></tr></thead><tbody>' + planRows + '</tbody></table></div>'
+            : '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>成员</th><th>进攻 1</th><th>进攻 2</th><th class="num">合计</th><th class="num">计划目标</th></tr></thead><tbody>' + recordRows + '</tbody></table></div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:10px">⭐ 点击星数按钮记录该次进攻（0-3 星），摧毁率和目标编号可直接输入；再点一次已选星数可撤销该次进攻记录。</div>') +
+          '</div>'
+        : '<div class="card"><h2>⚔️ 进攻记录</h2>' +
+          '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>成员</th><th>进攻 1</th><th>进攻 2</th><th class="num">合计</th></tr></thead><tbody>' + recordRows + '</tbody></table></div>' +
+          '<div style="font-size:12px;color:var(--muted);margin-top:10px">⭐ 点击星数按钮记录该次进攻（0-3 星），摧毁率和目标编号可直接输入；再点一次已选星数可撤销该次进攻记录。</div></div>'));
+
+  if (isLeague) {
+    document.querySelectorAll('[data-action="league-tab"]').forEach(b => b.classList.toggle('gold', b.dataset.t === current.leagueTab));
+  }
+}
+
+/* ================= 统计页 ================= */
+function renderStats() {
+  const filterMap = { all: '全部', normal: '普通战', league: '联赛' };
+  const wars = db.wars.filter(w => current.statFilter === 'all' ? true : w.type === current.statFilter);
+  const stats = db.members.map(m => {
+    let played = 0, absent = 0, due = 0, attacks = 0, stars = 0, destSum = 0, three = 0;
+    wars.forEach(w => {
+      if (!w.participants.includes(m.id)) return;
+      played++;
+      if (w.noShows && w.noShows[m.id]) { absent++; return; }
+      due += 2;
+      const arr = (w.records && w.records[m.id]) || [null, null];
+      arr.forEach(a => {
+        if (a) {
+          attacks++; stars += a.stars || 0;
+          if (a.dest != null) destSum += a.dest;
+          if (a.stars === 3) three++;
+        }
+      });
+    });
+    return {
+      m, played, absent, due, attacks,
+      rate: due ? attacks / due : 0,
+      stars,
+      avgPerWar: played ? stars / played : 0,
+      avgDest: attacks ? destSum / attacks : null,
+      three,
+      threeRate: attacks ? three / attacks : 0
+    };
+  }).filter(s => s.played > 0 || s.m.active !== false);
+
+  const sorter = () => {
+    const k = current.sortKey, d = current.sortDir;
+    return stats.slice().sort((a, b) => {
+      let va, vb;
+      switch (k) {
+        case 'name': va = a.m.name; vb = b.m.name; break;
+        case 'played': va = a.played; vb = b.played; break;
+        case 'absent': va = a.absent; vb = b.absent; break;
+        case 'rate': va = a.rate; vb = b.rate; break;
+        case 'stars': va = a.stars; vb = b.stars; break;
+        case 'avgPerWar': va = a.avgPerWar; vb = b.avgPerWar; break;
+        case 'avgDest': va = a.avgDest == null ? -1 : a.avgDest; vb = b.avgDest == null ? -1 : b.avgDest; break;
+        case 'threeRate': va = a.threeRate; vb = b.threeRate; break;
+        default: va = 0; vb = 0;
+      }
+      if (typeof va === 'string') return d * va.localeCompare(vb, 'zh');
+      return d * (va - vb);
+    });
+  };
+  const list = sorter();
+  const head = (key, label) =>
+    '<th class="num" style="cursor:pointer;user-select:none" data-action="sort" data-k="' + key + '">' +
+    label + (current.sortKey === key ? (current.sortDir === -1 ? ' ▼' : ' ▲') : '') + '</th>';
+
+  const tot = {
+    played: stats.reduce((s, x) => s + x.played, 0),
+    absent: stats.reduce((s, x) => s + x.absent, 0),
+    attacks: stats.reduce((s, x) => s + x.attacks, 0),
+    due: stats.reduce((s, x) => s + x.due, 0),
+    stars: stats.reduce((s, x) => s + x.stars, 0)
+  };
+
+  const rows = list.map(s => '<tr>' +
+    '<td><div class="member-cell"><div class="nm">' + esc(s.m.name) + '</div>' +
+    '<div class="meta">' + (s.m.th ? s.m.th + ' 本 · ' : '') + esc(s.m.role || '成员') + '</div></div></td>' +
+    '<td class="num">' + s.played + '</td>' +
+    '<td class="num"><b style="color:' + (s.absent > 0 ? '#b91c1c' : '#15803d') + '">' + s.absent + '</b><span style="color:var(--muted)"> / ' + s.played + '</span></td>' +
+    '<td class="num"><span class="badge ' + (s.rate >= 1 ? 'green' : s.rate >= .75 ? 'gold' : 'red') + '">' + Math.round(s.rate * 100) + '%</span></td>' +
+    '<td class="num" style="font-weight:700;color:var(--star)">' + s.stars + '</td>' +
+    '<td class="num">' + (s.played ? s.avgPerWar.toFixed(2) : '-') + '</td>' +
+    '<td class="num">' + (s.avgDest != null ? s.avgDest.toFixed(1) + '%' : '-') + '</td>' +
+    '<td class="num">' + s.three + '</td>' +
+    '<td class="num">' + (s.attacks ? Math.round(s.threeRate * 100) + '%' : '-') + '</td>' +
+    '</tr>').join('');
+
+  main.innerHTML =
+    '<div class="card"><h2>📊 成员统计 <span class="hint">点击表头可排序</span></h2>' +
+    '<div class="chips">' + Object.keys(filterMap).map(k =>
+      '<button class="chip' + (current.statFilter === k ? ' active' : '') + '" data-action="stat-filter" data-f="' + k + '">' + filterMap[k] + '</button>').join('') +
+    '</div>' +
+    '<div class="stat-cards">' +
+      '<div class="stat-card"><div class="v">' + tot.played + '</div><div class="k">总上场人次</div></div>' +
+      '<div class="stat-card"><div class="v">' + tot.absent + '<span style="font-size:13px"> / ' + tot.played + '</span></div><div class="k">缺勤 / 上场</div></div>' +
+      '<div class="stat-card"><div class="v">' + (tot.played ? Math.round((tot.played - tot.absent) / tot.played * 100) : 0) + '<span style="font-size:13px">%</span></div><div class="k">整体出勤率</div></div>' +
+      '<div class="stat-card"><div class="v">' + tot.stars + '</div><div class="k">总星数</div></div>' +
+    '</div>' +
+    (list.length === 0
+      ? '<div class="empty">当前筛选下没有数据。</div>'
+      : '<div class="tbl-scroll"><table class="tbl"><thead><tr>' +
+        head('name', '成员') + head('played', '出战') + head('absent', '缺勤/上场') + head('rate', '使用率') +
+        head('stars', '总星') + head('avgPerWar', '场均星') + head('avgDest', '均摧毁') + head('three', '三星数') + head('threeRate', '三星率') +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>') +
+    '</div>' +
+    '<div class="card"><h2>📈 每场战争汇总</h2>' +
+    (wars.length === 0
+      ? '<div class="empty">暂无战争数据。</div>'
+      : '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>战争</th><th class="num">规模</th><th class="num">缺勤 · 已攻/应攻</th><th class="num">总星</th><th class="num">均摧毁</th><th class="num">三星</th></tr></thead><tbody>' +
+      wars.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(w => {
+        const noShowCnt = w.participants.filter(mid => w.noShows && w.noShows[mid]).length;
+        const due = (w.participants.length - noShowCnt) * 2;
+        const rec = w.records || {};
+        let used = 0, stars = 0, dSum = 0, dCnt = 0, three = 0;
+        w.participants.forEach(mid => {
+          if (w.noShows && w.noShows[mid]) return;
+          (rec[mid] || [null, null]).forEach(a => {
+            if (a) { used++; stars += a.stars || 0; if (a.dest != null) { dSum += a.dest; dCnt++; } if (a.stars === 3) three++; }
+          });
+        });
+        return '<tr>' +
+          '<td><b>' + (w.type === 'league' ? '第 ' + w.battleNo + ' 场 · ' : '') + esc(w.name) + '</b>' +
+          '<div style="font-size:11.5px;color:var(--muted)">' + (w.date || '') + '</div></td>' +
+          '<td class="num">' + w.participants.length + 'v' + w.participants.length + '</td>' +
+          '<td class="num">' + (noShowCnt > 0 ? '<b style="color:#b91c1c">缺 ' + noShowCnt + '</b> · ' : '') + used + '/' + due + '</td>' +
+          '<td class="num" style="font-weight:700;color:var(--star)">' + stars + '</td>' +
+          '<td class="num">' + (dCnt ? (dSum / dCnt).toFixed(1) + '%' : '-') + '</td>' +
+          '<td class="num">' + three + '</td></tr>';
+      }).join('') + '</tbody></table></div>') +
+    '</div>';
+}
+
+/* ================= 备份页 ================= */
+function renderBackup() {
+  main.innerHTML =
+    '<div class="card"><h2>💾 备份与导出</h2>' +
+    '<div class="row">' +
+      '<button class="btn gold" data-action="export-json">📦 导出全部数据（JSON）</button>' +
+      '<button class="btn blue" data-action="import-json">📥 导入数据（JSON）</button>' +
+      '<button class="btn green" data-action="export-csv-stats">📊 导出成员统计（CSV）</button>' +
+      '<button class="btn green" data-action="export-csv-detail">📋 导出进攻明细（CSV）</button>' +
+      '<button class="btn red" data-action="reset">⚠️ 清空所有数据</button>' +
+    '</div>' +
+    '<input type="file" id="importFile" accept=".json,application/json" style="display:none">' +
+    '<p style="font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.9">' +
+    '· 数据保存在<b>本浏览器的本地存储</b>中，换浏览器或清除浏览器数据会丢失，请定期导出 JSON 备份。<br>' +
+    '· JSON 备份包含全部成员、战争、联赛数据，可在任何电脑的浏览器中导入恢复。<br>' +
+    '· CSV 文件可用 Excel / WPS 打开查看。</p></div>' +
+    '<div class="card"><h2>📖 使用说明</h2>' +
+    '<div style="font-size:13.5px;line-height:2;color:var(--text)">' +
+    '<b>1. 成员</b>：先把部落成员录入（昵称、大本营、职位），离队成员点「离队」保留历史数据。<br>' +
+    '<b>2. 普通部落战</b>：新建时勾选参战成员 → 进入详情直接记录每人 2 次进攻：点星数、填摧毁率和目标编号；没打的成员点「标记未进攻」记为缺勤。<br>' +
+    '<b>3. 联赛</b>：新建联赛（自动生成 7 场）→ 进入某一场 → 先选名单 → 「🗺 规划目标」指派每人打几号（可用🎲自动分配）→ 「⚔️ 记录结果」填实际数据，自动对比是否按计划完成。<br>' +
+    '<b>4. 统计</b>：查看每位成员的出勤率、总星、场均星、三星率等，可按普通战/联赛筛选，点表头排序。<br>' +
+    '<b>5. 备份</b>：定期导出 JSON 备份，换设备时导入即可。</div></div>';
+}
+
+/* ================= 弹窗：添加/编辑成员 ================= */
+function memberModal(m) {
+  const isEdit = !!m;
+  openModal(
+    '<h3>' + (isEdit ? '✏️ 编辑成员' : '➕ 添加成员') + '</h3>' +
+    '<div class="field"><label>游戏昵称 *</label><input class="inp" id="mmName" value="' + esc(m ? m.name : '') + '" placeholder="如：野蛮人之王"></div>' +
+    '<div class="form-grid">' +
+      '<div class="field"><label>玩家标签</label><input class="inp" id="mmTag" value="' + esc(m && m.tag ? m.tag : '#') + '" maxlength="10" placeholder="#ABCD12345"></div>' +
+      '<div class="field" style="max-width:150px"><label>大本营等级</label><select class="inp" id="mmTh">' +
+        (m && m.th < 6 ? '<option value="' + m.th + '" selected>' + m.th + ' 本（低本）</option>' : '') +
+        Array.from({ length: 13 }, (_, i) => { const t = 18 - i; return '<option value="' + t + '"' + (m && m.th === t ? ' selected' : '') + '>' + t + ' 本</option>'; }).join('') +
+      '</select></div>' +
+      '<div class="field" style="max-width:170px"><label>职位</label><select class="inp" id="mmRole">' +
+        ['成员', '长老', '副首领', '首领'].map(r => '<option' + (m && m.role === r ? ' selected' : '') + '>' + r + '</option>').join('') +
+      '</select></div>' +
+      '<div class="field" style="max-width:170px"><label>出战意愿</label><select class="inp" id="mmWill">' +
+        '<option value="1"' + (!m || m.willWar !== false ? ' selected' : '') + '>✅ 愿意出战</option>' +
+        '<option value="0"' + (m && m.willWar === false ? ' selected' : '') + '>🚫 不愿出战</option>' +
+      '</select></div>' +
+    '</div>' +
+    '<div class="foot">' +
+      '<button class="btn ghost" data-action="close-modal">取消</button>' +
+      '<button class="btn gold" data-action="save-member" data-id="' + (m ? m.id : '') + '">保存</button>' +
+    '</div>');
+}
+
+/* ================= 弹窗：新建普通战 ================= */
+function newNormalModal() {
+  const actives = db.members.filter(m => m.active !== false);
+  openModal(
+    '<h3>⚔️ 新建普通部落战</h3>' +
+    '<div class="form-grid">' +
+      '<div class="field"><label>战争名称</label><input class="inp" id="nwName" value="普通部落战 ' + (db.wars.filter(w => w.type === 'normal').length + 1) + '"></div>' +
+      '<div class="field" style="max-width:200px"><label>对手部落（可选）</label><input class="inp" id="nwOpp" placeholder="对手部落名"></div>' +
+      '<div class="field" style="max-width:180px"><label>日期</label><input class="inp" type="date" id="nwDate" value="' + today() + '"></div>' +
+    '</div>' +
+    '<div class="field"><label>勾选参战成员（共 <span id="nwCount">0</span> 人）</label>' +
+    '<div class="check-list">' +
+    (actives.length === 0
+      ? '<div style="padding:16px;color:var(--muted);text-align:center">还没有成员，请先到「成员」页添加。</div>'
+      : actives.map(m =>
+        '<label class="check-item"><input type="checkbox" value="' + m.id + '">' +
+        '<span><b>' + esc(m.name) + '</b> ' + (m.willWar === false
+          ? '<span class="badge red">🚫 不愿</span>'
+          : '<span class="badge green">✅ 愿意</span>') +
+        ' <span class="meta">' + (m.th ? m.th + ' 本 · ' : '') + esc(m.role || '成员') + '</span></span></label>').join('')) +
+    '</div></div>' +
+    '<div class="row" style="margin-bottom:12px">' +
+      '<button class="btn sm ghost" data-action="check-all">全选</button>' +
+      '<button class="btn sm ghost" data-action="check-none">清空</button>' +
+      '<button class="btn sm ghost" data-action="check-willing">✅ 勾选愿意出战</button>' +
+    '</div>' +
+    '<div class="foot">' +
+      '<button class="btn ghost" data-action="close-modal">取消</button>' +
+      '<button class="btn gold" data-action="save-normal-war">创建并进入记录</button>' +
+    '</div>');
+}
+
+/* ================= 弹窗：新建联赛 ================= */
+function newLeagueModal() {
+  const actives = db.members.filter(m => m.active !== false);
+  const ymd = today().slice(0, 7);
+  openModal(
+    '<h3>🏆 新建部落对战联赛</h3>' +
+    '<div class="form-grid">' +
+      '<div class="field"><label>联赛名称</label><input class="inp" id="lgName" value="联赛 ' + ymd + '"></div>' +
+      '<div class="field" style="max-width:150px"><label>场数</label><select class="inp" id="lgCount">' +
+        Array.from({ length: 7 }, (_, i) => '<option value="' + (i + 1) + '"' + (i + 1 === 7 ? ' selected' : '') + '>' + (i + 1) + ' 场</option>').join('') +
+      '</select></div>' +
+      '<div class="field" style="max-width:180px"><label>开始日期</label><input class="inp" type="date" id="lgDate" value="' + today() + '"></div>' +
+    '</div>' +
+    '<div class="field"><label>初始参战名单（每场 15 人，之后可在每场里单独调整。共 <span id="lgCountSel">0</span> 人）</label>' +
+    '<div class="check-list">' +
+    (actives.length === 0
+      ? '<div style="padding:16px;color:var(--muted);text-align:center">还没有成员，请先到「成员」页添加。</div>'
+      : actives.map(m =>
+        '<label class="check-item"><input type="checkbox" value="' + m.id + '">' +
+        '<span><b>' + esc(m.name) + '</b> ' + (m.willWar === false
+          ? '<span class="badge red">🚫 不愿</span>'
+          : '<span class="badge green">✅ 愿意</span>') +
+        ' <span class="meta">' + (m.th ? m.th + ' 本 · ' : '') + esc(m.role || '成员') + '</span></span></label>').join('')) +
+    '</div></div>' +
+    '<div class="row" style="margin-bottom:12px">' +
+      '<button class="btn sm ghost" data-action="check-all">全选</button>' +
+      '<button class="btn sm ghost" data-action="check-none">清空</button>' +
+      '<button class="btn sm ghost" data-action="check-willing">✅ 勾选愿意出战</button>' +
+    '</div>' +
+    '<div class="foot">' +
+      '<button class="btn ghost" data-action="close-modal">取消</button>' +
+      '<button class="btn gold" data-action="save-league">创建联赛</button>' +
+    '</div>');
+}
+
+/* ================= 弹窗：编辑战争信息 ================= */
+function editWarModal(w) {
+  openModal(
+    '<h3>✏️ 编辑战争信息</h3>' +
+    '<div class="form-grid">' +
+      '<div class="field"><label>战争名称</label><input class="inp" id="ewName" value="' + esc(w.name) + '"></div>' +
+      '<div class="field" style="max-width:200px"><label>对手部落</label><input class="inp" id="ewOpp" value="' + esc(w.opponent || '') + '"></div>' +
+      '<div class="field" style="max-width:180px"><label>日期</label><input class="inp" type="date" id="ewDate" value="' + esc(w.date || '') + '"></div>' +
+    '</div>' +
+    '<div class="foot">' +
+      '<button class="btn ghost" data-action="close-modal">取消</button>' +
+      '<button class="btn gold" data-action="save-war-edit" data-id="' + w.id + '">保存</button>' +
+    '</div>');
+}
+
+/* ================= 弹窗：编辑名单 ================= */
+function participantsModal(w) {
+  const actives = db.members.filter(m => m.active !== false);
+  const maxSel = w.type === 'league' ? 15 : 50;
+  openModal(
+    '<h3>👥 参战名单 <span style="font-size:12px;color:var(--muted)">' + (w.type === 'league' ? '（联赛每场最多 15 人）' : '') + '</span></h3>' +
+    '<div class="field"><label>已选 <span id="pcCount">' + w.participants.length + '</span> / ' + maxSel + ' 人</label>' +
+    '<div class="check-list">' +
+    actives.map(m =>
+      '<label class="check-item"><input type="checkbox" value="' + m.id + '"' + (w.participants.includes(m.id) ? ' checked' : '') + '>' +
+      '<span><b>' + esc(m.name) + '</b> ' + (m.willWar === false
+        ? '<span class="badge red">🚫 不愿</span>'
+        : '<span class="badge green">✅ 愿意</span>') +
+      ' <span class="meta">' + (m.th ? m.th + ' 本 · ' : '') + esc(m.role || '成员') + '</span></span></label>').join('') +
+    '</div></div>' +
+    '<div class="row" style="margin-bottom:12px">' +
+      '<button class="btn sm ghost" data-action="check-all">全选</button>' +
+      '<button class="btn sm ghost" data-action="check-none">清空</button>' +
+      '<button class="btn sm ghost" data-action="check-willing">✅ 勾选愿意出战</button>' +
+    '</div>' +
+    '<div class="foot">' +
+      '<button class="btn ghost" data-action="close-modal">取消</button>' +
+      '<button class="btn gold" data-action="save-participants" data-id="' + w.id + '">保存名单</button>' +
+    '</div>');
+}
+
+/* ================= CSV 导出 ================= */
+function download(name, content, mime) {
+  const blob = new Blob(['\uFEFF' + content], { type: mime || 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function csvCell(v) {
+  v = String(v == null ? '' : v);
+  if (/[",\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+  return v;
+}
+function exportStatsCSV() {
+  const stats = db.members.map(m => {
+    let played = 0, absent = 0, due = 0, attacks = 0, stars = 0, destSum = 0, three = 0;
+    db.wars.forEach(w => {
+      if (!w.participants.includes(m.id)) return;
+      played++;
+      if (w.noShows && w.noShows[m.id]) { absent++; return; }
+      due += 2;
+      ((w.records && w.records[m.id]) || [null, null]).forEach(a => {
+        if (a) { attacks++; stars += a.stars || 0; if (a.dest != null) destSum += a.dest; if (a.stars === 3) three++; }
+      });
+    });
+    return [m.name, m.tag || '', m.th || '', m.role || '', m.active === false ? '已离队' : '活跃', played, absent, attacks, due,
+      due ? Math.round(attacks / due * 100) + '%' : '-', stars, played ? (stars / played).toFixed(2) : '-',
+      attacks ? (destSum / attacks).toFixed(1) + '%' : '-', three, attacks ? Math.round(three / attacks * 100) + '%' : '-'];
+  });
+  const lines = [['成员', '标签', '大本营', '职位', '状态', '上场次数', '缺勤次数', '已进攻', '应进攻', '使用率', '总星数', '场均星', '平均摧毁率', '三星数', '三星率']]
+    .concat(stats).map(r => r.map(csvCell).join(','));
+  download('部落战统计_成员汇总.csv', lines.join('\r\n'), 'text/csv;charset=utf-8');
+  toast('已导出成员统计 CSV');
+}
+function exportDetailCSV() {
+  const mm = memberMap();
+  const rows = [['战争名称', '类型', '场次', '日期', '成员', '进攻序号', '星数', '摧毁率%', '目标编号', '计划目标']];
+  db.wars.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(w => {
+    w.participants.forEach(mid => {
+      const arr = (w.records && w.records[mid]) || [null, null];
+      arr.forEach((a, i) => {
+        if (a) rows.push([w.name, w.type === 'league' ? '联赛' : '普通战', w.battleNo || '', w.date || '', mm[mid] ? mm[mid].name : '(已删除成员)',
+          i + 1, a.stars || 0, a.dest != null ? a.dest : '', a.target != null ? a.target : '', (w.plans && w.plans[mid]) || '']);
+      });
+    });
+  });
+  download('部落战统计_进攻明细.csv', rows.map(r => r.map(csvCell).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+  toast('已导出进攻明细 CSV');
+}
+function exportWarText(w) {
+  const mm = memberMap();
+  const lines = [];
+  lines.push('=== ' + (w.type === 'league' ? '联赛 第' + w.battleNo + '场 · ' : '') + w.name + ' ===');
+  lines.push('日期: ' + (w.date || '') + (w.opponent ? '  对手: ' + w.opponent : ''));
+  lines.push('');
+  let used = 0, stars = 0;
+  w.participants.forEach(mid => {
+    const arr = (w.records && w.records[mid]) || [null, null];
+    const parts = arr.map((a, i) => a ? '进攻' + (i + 1) + ': ' + (a.stars || 0) + '星' + (a.dest != null ? ' ' + a.dest + '%' : '') + (a.target != null ? ' 目标#' + a.target : '') : '进攻' + (i + 1) + ': 未用').join(' | ');
+    arr.forEach(a => { if (a) { used++; stars += a.stars || 0; } });
+    lines.push((mm[mid] ? mm[mid].name : '(已删除成员)') + '  →  ' + parts);
+  });
+  lines.push('');
+  lines.push('已用进攻: ' + used + '/' + (w.participants.length * 2) + '  总星数: ' + stars);
+  download('部落战_' + (w.name || w.id).replace(/[\\/:*?"<>|]/g, '_') + '.txt', lines.join('\r\n'));
+  toast('已导出本场战报');
+}
+
+/* ================= 事件处理 ================= */
+document.addEventListener('click', e => {
+  const navBtn = e.target.closest('[data-nav]');
+  if (navBtn) { go(navBtn.dataset.nav); return; }
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const act = el.dataset.action;
+  const id = el.dataset.id;
+
+  switch (act) {
+    case 'add-member': {
+      const name = $('#mName').value.trim();
+      if (!name) { toast('请填写成员昵称', true); return; }
+      const th = parseInt($('#mTh').value, 10);
+      db.members.push({
+        id: uid(), name, tag: cleanTag($('#mTag').value), th,
+        role: $('#mRole').value, willWar: $('#mWill').value !== '0', active: true, joinedAt: new Date().toISOString()
+      });
+      save(); render(); toast('已添加成员「' + name + '」');
+      break;
+    }
+    case 'edit-member': openMemberEdit(id); break;
+    case 'toggle-member': {
+      const m = db.members.find(x => x.id === id);
+      if (m) { m.active = m.active === false; save(); render(); toast(m.active ? '「' + m.name + '」已回归部落' : '「' + m.name + '」已标记离队'); }
+      break;
+    }
+    case 'toggle-will': {
+      const m = db.members.find(x => x.id === id);
+      if (m) {
+        m.willWar = m.willWar === false;
+        save(); render();
+        toast('「' + m.name + '」' + (m.willWar === false ? '🚫 不愿出战' : '✅ 愿意出战'));
+      }
+      break;
+    }
+    case 'copy-member': {
+      const m = db.members.find(x => x.id === id);
+      if (m) copyText(m.name + (m.tag ? ' ' + m.tag : ''));
+      break;
+    }
+    case 'del-member': {
+      const m = db.members.find(x => x.id === id);
+      if (!m) break;
+      if (!confirm('确定删除成员「' + m.name + '」？\n其历史战争记录将显示为「已删除成员」但仍保留。')) return;
+      db.members = db.members.filter(x => x.id !== id);
+      save(); render(); toast('已删除成员');
+      break;
+    }
+    case 'save-member': {
+      const name = $('#mmName').value.trim();
+      if (!name) { toast('请填写成员昵称', true); return; }
+      if (id) {
+        const m = db.members.find(x => x.id === id);
+        if (m) {
+          m.name = name; m.tag = cleanTag($('#mmTag').value);
+          m.th = parseInt($('#mmTh').value, 10); m.role = $('#mmRole').value;
+          m.willWar = $('#mmWill').value !== '0';
+        }
+      } else {
+        db.members.push({
+          id: uid(), name, tag: cleanTag($('#mmTag').value), th: parseInt($('#mmTh').value, 10),
+          role: $('#mmRole').value, willWar: $('#mmWill').value !== '0', active: true, joinedAt: new Date().toISOString()
+        });
+      }
+      save(); closeModal(); render(); toast('已保存');
+      break;
+    }
+    case 'new-normal': newNormalModal(); break;
+    case 'new-league': newLeagueModal(); break;
+    case 'check-all': {
+      document.querySelectorAll('.check-list input[type=checkbox]').forEach(c => c.checked = true);
+      updateCheckCount();
+      break;
+    }
+    case 'check-none': {
+      document.querySelectorAll('.check-list input[type=checkbox]').forEach(c => c.checked = false);
+      updateCheckCount();
+      break;
+    }
+    case 'check-willing': {
+      const mm = memberMap();
+      document.querySelectorAll('.check-list input[type=checkbox]').forEach(c => {
+        const m = mm[c.value];
+        c.checked = m && m.willWar !== false;
+      });
+      updateCheckCount();
+      break;
+    }
+    case 'save-normal-war': {
+      const pids = [...document.querySelectorAll('.check-list input:checked')].map(c => c.value);
+      if (pids.length === 0) { toast('请至少勾选 1 名参战成员', true); return; }
+      const w = {
+        id: uid(), type: 'normal', name: $('#nwName').value.trim() || '普通部落战',
+        opponent: $('#nwOpp').value.trim(), date: $('#nwDate').value || today(),
+        participants: pids, records: {}, plans: {}, noShows: {}, result: 'pending'
+      };
+      db.wars.push(w);
+      save(); closeModal(); go('war', w.id); toast('已创建，开始记录进攻吧');
+      break;
+    }
+    case 'save-league': {
+      const pids = [...document.querySelectorAll('.check-list input:checked')].map(c => c.value);
+      if (pids.length === 0) { toast('请勾选初始参战名单', true); return; }
+      if (pids.length > 15) { toast('联赛每场最多 15 人，当前选了 ' + pids.length + ' 人', true); return; }
+      const count = parseInt($('#lgCount').value, 10);
+      const lgId = uid();
+      db.leagues.push({ id: lgId, name: $('#lgName').value.trim() || '联赛', date: $('#lgDate').value || today() });
+      for (let i = 1; i <= count; i++) {
+        db.wars.push({
+          id: uid(), type: 'league', leagueId: lgId, battleNo: i,
+          name: ($('#lgName').value.trim() || '联赛') + ' 第' + i + '场',
+          opponent: '', date: $('#lgDate').value || today(), participants: pids.slice(), records: {}, plans: {}, noShows: {}, result: 'pending'
+        });
+      }
+      save(); closeModal(); render(); toast('联赛已创建，共 ' + count + ' 场');
+      break;
+    }
+    case 'open-war': go('war', id); break;
+    case 'back-wars': go('wars'); break;
+    case 'del-war': {
+      const w = warById(id);
+      if (!w) break;
+      if (!confirm('确定删除「' + w.name + '」？其进攻记录将一并删除。')) return;
+      db.wars = db.wars.filter(x => x.id !== id);
+      save();
+      if (current.page === 'war') go('wars'); else render();
+      toast('已删除战争');
+      break;
+    }
+    case 'del-league': {
+      const lg = db.leagues.find(l => l.id === id);
+      if (!lg) break;
+      const cnt = db.wars.filter(w => w.leagueId === id).length;
+      if (!confirm('确定删除联赛「' + lg.name + '」及其 ' + cnt + ' 场战斗的所有记录？')) return;
+      db.wars = db.wars.filter(w => w.leagueId !== id);
+      db.leagues = db.leagues.filter(l => l.id !== id);
+      save(); render(); toast('已删除联赛');
+      break;
+    }
+    case 'set-result': {
+      const w = warById(id);
+      if (w) { w.result = el.dataset.r; save(); render(); }
+      break;
+    }
+    case 'edit-war': {
+      const w = warById(id);
+      if (w) editWarModal(w);
+      break;
+    }
+    case 'save-war-edit': {
+      const w = warById(id);
+      if (w) {
+        w.name = $('#ewName').value.trim() || w.name;
+        w.opponent = $('#ewOpp').value.trim();
+        w.date = $('#ewDate').value;
+        save(); closeModal(); render();
+      }
+      break;
+    }
+    case 'edit-participants': {
+      const w = warById(id);
+      if (w) participantsModal(w);
+      break;
+    }
+    case 'save-participants': {
+      const w = warById(id);
+      if (!w) break;
+      const pids = [...document.querySelectorAll('.check-list input:checked')].map(c => c.value);
+      const maxSel = w.type === 'league' ? 15 : 50;
+      if (pids.length > maxSel) { toast('最多 ' + maxSel + ' 人，当前选了 ' + pids.length + ' 人', true); return; }
+      w.participants = pids;
+      save(); closeModal(); render(); toast('名单已更新');
+      break;
+    }
+    case 'set-star': {
+      const w = warById(current.warId);
+      if (!w) break;
+      const mid = el.dataset.mid, slot = parseInt(el.dataset.slot, 10), s = parseInt(el.dataset.s, 10);
+      if (!w.records) w.records = {};
+      if (!w.records[mid]) w.records[mid] = [null, null];
+      const a = w.records[mid][slot];
+      if (a && a.stars === s) w.records[mid][slot] = null;
+      else w.records[mid][slot] = Object.assign({}, a || {}, { stars: s });
+      save(); renderWarDetail();
+      break;
+    }
+    case 'toggle-noshow': {
+      const w = warById(current.warId);
+      if (!w) break;
+      const mid = el.dataset.mid;
+      if (!w.noShows) w.noShows = {};
+      if (w.noShows[mid]) delete w.noShows[mid];
+      else w.noShows[mid] = true;
+      save(); renderWarDetail();
+      break;
+    }
+    case 'set-plan': break; /* select 用 change 事件处理 */
+    case 'league-tab': current.leagueTab = el.dataset.t; renderWarDetail(); break;
+    case 'auto-plan': {
+      const w = warById(current.warId);
+      if (!w) break;
+      const targets = Array.from({ length: w.participants.length }, (_, i) => i + 1);
+      for (let i = targets.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [targets[i], targets[j]] = [targets[j], targets[i]];
+      }
+      w.plans = {};
+      w.participants.forEach((mid, i) => { w.plans[mid] = targets[i]; });
+      save(); renderWarDetail(); toast('已自动分配目标');
+      break;
+    }
+    case 'clear-plan': {
+      const w = warById(current.warId);
+      if (w) { w.plans = {}; save(); renderWarDetail(); toast('已清空规划'); }
+      break;
+    }
+    case 'stat-filter': current.statFilter = el.dataset.f; render(); break;
+    case 'sort': {
+      const k = el.dataset.k;
+      if (current.sortKey === k) current.sortDir *= -1;
+      else { current.sortKey = k; current.sortDir = -1; }
+      render();
+      break;
+    }
+    case 'export-json': {
+      download('部落战统计_备份_' + today() + '.json', JSON.stringify(db, null, 2), 'application/json');
+      toast('已导出 JSON 备份');
+      break;
+    }
+    case 'import-json': $('#importFile').click(); break;
+    case 'export-csv-stats': exportStatsCSV(); break;
+    case 'export-csv-detail': exportDetailCSV(); break;
+    case 'export-war': {
+      const w = warById(id);
+      if (w) exportWarText(w);
+      break;
+    }
+    case 'reset': {
+      if (!confirm('确定清空所有数据？此操作不可恢复！\n建议先导出 JSON 备份。')) return;
+      if (!confirm('再次确认：真的要删除全部成员、战争和联赛数据吗？')) return;
+      db = { members: [], wars: [], leagues: [], clanName: '' };
+      save(); go('members'); toast('已清空所有数据');
+      break;
+    }
+    case 'edit-clan': {
+      openModal(
+        '<h3>🏰 设置部落名称</h3>' +
+        '<div class="field"><label>部落名称（显示在页面顶部大标题）</label><input class="inp" id="cnName" value="' + esc(db.clanName || '') + '" placeholder="如：野蛮人之都" maxlength="30"></div>' +
+        '<div class="foot">' +
+          '<button class="btn ghost" data-action="close-modal">取消</button>' +
+          '<button class="btn gold" data-action="save-clan">保存</button>' +
+        '</div>');
+      break;
+    }
+    case 'save-clan': {
+      db.clanName = $('#cnName').value.trim();
+      save(); closeModal(); render();
+      toast('部落名称已更新');
+      break;
+    }
+    case 'close-modal': closeModal(); break;
+  }
+});
+
+/* input 事件：玩家标签实时过滤（# 开头、仅大写字母与数字、小写自动转大写）与成员搜索 */
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (!el) return;
+  if (el.id === 'memberSearch') {
+    current.memberSearch = el.value;
+    renderMemberList();
+    return;
+  }
+  if (el.id !== 'mTag' && el.id !== 'mmTag') return;
+  let v = el.value.toUpperCase().replace(/[^#A-Z0-9]/g, '').replace(/#/g, '');
+  v = '#' + v.slice(0, 9);
+  if (el.value !== v) el.value = v;
+});
+
+/* change 事件：select 规划、数字输入、名单计数、导入文件 */
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.matches('.check-list input[type=checkbox]')) { updateCheckCount(); return; }
+
+  if (el.matches('select[data-action="set-plan"]')) {
+    const w = warById(current.warId);
+    if (!w) return;
+    const mid = el.dataset.mid;
+    if (!w.plans) w.plans = {};
+    if (el.value === '') delete w.plans[mid];
+    else w.plans[mid] = parseInt(el.value, 10);
+    save(); renderWarDetail();
+    return;
+  }
+
+  if (el.matches('.atk input.inp')) {
+    const w = warById(current.warId);
+    if (!w) return;
+    const mid = el.dataset.mid, slot = parseInt(el.dataset.slot, 10);
+    if (!w.records) w.records = {};
+    if (!w.records[mid]) w.records[mid] = [null, null];
+    const field = el.dataset.field;
+    const maxTgt = w.type === 'league' ? 15 : 50;
+    let val = el.value.trim();
+    if (val === '') {
+      if (w.records[mid][slot]) {
+        if (field === 'dest') w.records[mid][slot].dest = null;
+        else w.records[mid][slot].target = null;
+        const a = w.records[mid][slot];
+        if (a.stars == null && a.dest == null && a.target == null) w.records[mid][slot] = null;
+      }
+    } else {
+      let n = parseInt(val, 10);
+      if (isNaN(n)) { renderWarDetail(); return; }
+      n = Math.min(field === 'dest' ? 100 : maxTgt, Math.max(field === 'dest' ? 0 : 1, n));
+      el.value = n;
+      if (!w.records[mid][slot]) w.records[mid][slot] = {};
+      w.records[mid][slot][field] = n;
+      if (w.records[mid][slot].stars == null) w.records[mid][slot].stars = 0;
+    }
+    save(); renderWarDetail();
+    return;
+  }
+
+  if (el.id === 'importFile') {
+    const file = el.files && el.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const d = JSON.parse(reader.result);
+        if (!d || !Array.isArray(d.members) || !Array.isArray(d.wars)) throw new Error('bad');
+        if (!confirm('导入将覆盖当前所有数据（当前共 ' + db.members.length + ' 名成员、' + db.wars.length + ' 场战争）。\n确定继续？')) return;
+        d.leagues = Array.isArray(d.leagues) ? d.leagues : [];
+        db = d;
+        save(); go('members'); toast('导入成功');
+      } catch (err) { toast('文件格式不正确，导入失败', true); }
+    };
+    reader.readAsText(file);
+    el.value = '';
+    return;
+  }
+});
+
+function updateCheckCount() {
+  const n = document.querySelectorAll('.check-list input:checked').length;
+  const c = $('#nwCount') || $('#lgCountSel') || $('#pcCount');
+  if (c) c.textContent = n;
+}
+function openMemberEdit(id) {
+  const m = db.members.find(x => x.id === id);
+  if (m) memberModal(m);
+}
+
+/* ================= 启动 ================= */
+render();
+</script>
+</body>
+</html>
