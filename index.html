@@ -58,6 +58,7 @@
   .clan-banner .clan-name:hover { border-color: var(--gold); }
   .clan-banner .coc-icon { vertical-align: -8px; margin-right: 6px; }
   .clan-banner .clan-edit-tip { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .clan-banner .local-status { display: block; margin-top: 6px; min-height: 22px; }
   nav.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
   .tab {
     border: 1px solid var(--line); background: var(--card); color: var(--muted);
@@ -252,6 +253,7 @@
   <div class="clan-banner">
     <h1 class="clan-name" id="clanNameEl" data-action="edit-clan" title="点击修改部落名称"><svg class="coc-icon" width="28" height="32" viewBox="0 0 30 34" aria-hidden="true"><path d="M15 1 L28 5.5 V17 C28 25.5 22 31.5 15 34 C8 31.5 2 25.5 2 17 V5.5 Z" fill="#2b5fbd" stroke="#f7c948" stroke-width="2"/><path d="M15 8.5 V21" stroke="#f7c948" stroke-width="2.2" stroke-linecap="round"/><path d="M11.5 15 H18.5" stroke="#f7c948" stroke-width="2.2" stroke-linecap="round"/><path d="M15 21 V23.5" stroke="#f7c948" stroke-width="2" stroke-linecap="round"/></svg> 我的部落</h1>
     <span class="clan-edit-tip">✏️ 点击上方名称即可修改部落名称</span>
+    <div class="local-status" id="localStatus"></div>
   </div>
   <main id="main"></main>
 </div>
@@ -298,7 +300,7 @@ let syncCfg = loadSyncCfg();
 let syncState = { status: 'unset', lastAt: null, error: '' };
 let syncTimer = null;
 let pendingImport = null;
-const APP_VERSION = 'v2.5';
+const APP_VERSION = 'v2.6';
 function syncId() { return (syncCfg && syncCfg.id) || 'main'; }
 function supHeaders() {
   const h = {
@@ -491,6 +493,7 @@ let localCfg = (function () {
 })();
 let localEditing = false;
 let localSyncState = { status: 'unset', lastAt: null, error: '' };
+let localServiceOnline = null;
 function saveLocalCfg() {
   try { localStorage.setItem(LOCAL_CFG_KEY, JSON.stringify(localCfg || {})); } catch (e) {}
 }
@@ -653,6 +656,31 @@ const COC_ICON = '<svg class="coc-icon" width="28" height="32" viewBox="0 0 30 3
 function renderClanBanner() {
   const el = $('#clanNameEl');
   if (el) el.innerHTML = COC_ICON + ' ' + esc(db.clanName ? db.clanName : '我的部落');
+  renderLocalStatus();
+}
+function renderLocalStatus() {
+  const el = $('#localStatus');
+  if (!el) return;
+  let html = '';
+  if (localServiceOnline === null) {
+    html = '<span class="badge gray">⏳ 检测本地服务…</span>';
+  } else if (localServiceOnline) {
+    html = '<span class="badge green">🟢 本地服务已连接</span>';
+  } else {
+    html = '<span class="badge red" data-action="check-local" style="cursor:pointer" title="点击重新检测">🔴 本地服务未运行（点击重试）</span>';
+  }
+  el.innerHTML = html;
+}
+function checkLocalService() {
+  localServiceOnline = null;
+  renderLocalStatus();
+  const ctrl = new AbortController();
+  const t = setTimeout(function () { ctrl.abort(); }, 3000);
+  return fetch(localApiBase() + '/api/ping', { signal: ctrl.signal })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { localServiceOnline = !!(d && d.ok); })
+    .catch(function () { localServiceOnline = false; })
+    .then(function () { clearTimeout(t); renderLocalStatus(); });
 }
 function render() {
   renderClanBanner();
@@ -1713,6 +1741,7 @@ document.addEventListener('click', e => {
       render();
       break;
     }
+    case 'check-local': checkLocalService(); break;
     case 'export-war': {
       const w = warById(id);
       if (w) exportWarText(w);
@@ -1847,6 +1876,7 @@ function openMemberEdit(id) {
 render();
 autoImportApiData();
 initCloudSync();
+checkLocalService();
 </script>
 </body>
 </html>
