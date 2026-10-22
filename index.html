@@ -387,6 +387,14 @@ function initCloudSync() {
   if (syncCfg) cloudSync();
 }
 /* 自动导入：同步脚本把数据注入 HTML 的 apiData 槽位后，启动时合并进本地数据 */
+/* 按游戏内排名（clanRank）重排成员：与游戏内成员列表顺序对齐，无排名的成员排最后 */
+function sortMembersByClanRank() {
+  db.members.sort(function (a, b) {
+    var ra = a.clanRank == null ? 9999 : a.clanRank;
+    var rb = b.clanRank == null ? 9999 : b.clanRank;
+    return ra - rb;
+  });
+}
 function mergeApiData(data) {
   const byTag = {};
   db.members.forEach(m => { if (m.tag) byTag[m.tag] = m; });
@@ -398,16 +406,19 @@ function mergeApiData(data) {
       old.name = nm.name;
       old.th = nm.th;
       old.role = nm.role;
+      if (nm.clanRank != null) old.clanRank = nm.clanRank;
       if (nm.warPreference === 'in') old.willWar = true;
       else if (nm.warPreference === 'out') old.willWar = false;
     } else {
       db.members.push({
         id: nm.tag, name: nm.name, tag: nm.tag, th: nm.th, role: nm.role,
+        clanRank: nm.clanRank,
         active: true, willWar: nm.warPreference === 'out' ? false : true, joinedAt: new Date().toISOString()
       });
       added++;
     }
   });
+  sortMembersByClanRank();
   (data.wars || []).forEach(nw => {
     if (!nw || !nw.id) return;
     const ex = db.wars.find(w => w.id === nw.id);
@@ -435,12 +446,14 @@ function mergeImportData(d) {
       old.name = nm.name;
       old.th = nm.th;
       old.role = nm.role;
+      if (nm.clanRank != null) old.clanRank = nm.clanRank;
       if (nm.warPreference === 'in') old.willWar = true;
       else if (nm.warPreference === 'out') old.willWar = false;
     } else {
       db.members.push(Object.assign({}, nm, { id: nm.tag }));
     }
   });
+  sortMembersByClanRank();
   const warIds = {};
   db.wars.forEach(w => { warIds[w.id] = w; });
   (d.wars || []).forEach(nw => {
